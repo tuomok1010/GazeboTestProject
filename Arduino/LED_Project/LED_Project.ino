@@ -238,7 +238,7 @@ void printMacAddress(byte mac[])
 void SendData()
 {
   int data = digitalRead(LED_BUILTIN);
-  String dataStr = "/led:" + (String)data;
+  String dataStr = "/led01:" + (String)data;
   Serial.print("sending data: ");
   Serial.println(dataStr);
 
