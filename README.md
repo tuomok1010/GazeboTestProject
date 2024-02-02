@@ -23,7 +23,7 @@ export GZ_SIM_SERVER_CONFIG_PATH=$HOME/Documents/Gazebo/TestProject/World/test_w
 
 9. Edit the "test_world_server.config" file, so that the TestPlugin "filename" attribute of the last plugin points to where the TestPlugin library is located in your system.
 
-10. Run World/test_project_launch.gzlaunch
+10. Run World/test_project_launch.gzlaunch with the command "gz launch test_project_launch.gzlaunch"
 
 11. If everything works, the TopicHandler (which is using the PacketHandler lib) is listening on port "8445" (default) for tcp traffic. Any packets are received in the PacketHandlerReceiveCallback() function. In the example code, an Arduino is sending LED status tcp message and the program converts it to a gz::msgs::Boolean message and publishes it. The TestPlugin prints a message when it is constructed.
 
