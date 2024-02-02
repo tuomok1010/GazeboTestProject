@@ -21,7 +21,7 @@ Testing/Learning the Gazebo simulation software with Arduino Wifi Rev2. This is 
 8. Navigate to the "World" folder and set the Gazebo server config environment variable with the following command(NOTE: edit the path if necessary): 
 export GZ_SIM_SERVER_CONFIG_PATH=$HOME/Documents/Gazebo/TestProject/World/test_world_server.config
 
-9. Edit the "test_world_server.config" file, so that the TestPlugin "filename" attribute of the last <plugin>  points to where the TestPlugin library is located in your system.
+9. Edit the "test_world_server.config" file, so that the TestPlugin "filename" attribute of the last plugin points to where the TestPlugin library is located in your system.
 
 10. Run World/test_project_launch.gzlaunch
 
