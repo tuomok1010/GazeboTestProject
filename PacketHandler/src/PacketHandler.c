@@ -9,14 +9,14 @@
 #include <poll.h>
 
 // TODO: add option to supply a specific IP address to bind on
-int PHInit(const char* port)
+int PHInit(struct InitData* initData, const char* port)
 {
-    fprintf(stdout, "PHInit()\n");
+    initData->listeningSocket = -1;
+    memset(initData->packetBuffer, 0, PACKET_BUFFER_LEN);
 
     struct addrinfo* results = NULL;
     struct addrinfo* result = NULL;
     struct addrinfo hints;
-    int listeningSocket = -1;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -37,8 +37,8 @@ int PHInit(const char* port)
 
     for(result = results; result != NULL; result = result->ai_next)
     {
-        listeningSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        if(listeningSocket == -1)
+        initData->listeningSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if(initData->listeningSocket == -1)
         {
             fprintf(stderr, "socket() error, retrying..\n");
             continue;
@@ -51,26 +51,26 @@ int PHInit(const char* port)
          * (this may not be necessary since we do not bind to a specific ip address, TODO: find out)
         */
         int optVal = 1;
-        if(setsockopt(listeningSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&optVal, sizeof(int)) == -1)
+        if(setsockopt(initData->listeningSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&optVal, sizeof(int)) == -1)
         {
             fprintf(stderr, "setsockopt() error, retrying..\n");
-            close(listeningSocket);
+            close(initData->listeningSocket);
             continue;
         }
 
         // binds a socket to an IP address (in our case any ip address) and port
-        if(bind(listeningSocket, result->ai_addr, result->ai_addrlen) == -1)
+        if(bind(initData->listeningSocket, result->ai_addr, result->ai_addrlen) == -1)
         {
             fprintf(stderr, "bind() error, retrying..\n");
-            close(listeningSocket);
+            close(initData->listeningSocket);
             continue;
         }
 
         // set up socket for listening for incoming connections NOTE: this does NOT block
-        if(listen(listeningSocket, SOMAXCONN) == -1)
+        if(listen(initData->listeningSocket, SOMAXCONN) == -1)
         {
             fprintf(stderr, "listen() error, retrying..\n");
-            close(listeningSocket);
+            close(initData->listeningSocket);
             continue;
         }
 
@@ -79,7 +79,7 @@ int PHInit(const char* port)
         if(PHAddrToStr(result->ai_addr, listenerAddrStr, sizeof(listenerAddrStr)) != 0)
         {
             fprintf(stderr, "PHAddrToStr() error\n");
-            close(listeningSocket);
+            close(initData->listeningSocket);
             continue;
         }
 
@@ -91,15 +91,15 @@ int PHInit(const char* port)
     if(result == NULL)
     {
         fprintf(stderr, "unable to create socket, exiting..\n");
-        shutdown(listeningSocket, SHUT_RDWR);
-        close(listeningSocket);
+        shutdown(initData->listeningSocket, SHUT_RDWR);
+        close(initData->listeningSocket);
         freeaddrinfo(results);
         return -1;
     }
 
     // we no longer need the addrInfo structs
     freeaddrinfo(results);
-    return listeningSocket;
+    return 0;
 }
 
 int PHAcceptConnection(int32_t listeningSocket)
@@ -131,11 +131,9 @@ int PHAcceptConnection(int32_t listeningSocket)
     return newFd;
 }
 
-int PHReceive(int32_t socketFd, PacketReceivedCallback cb)
+int PHReceive(int32_t socketFd, char* packetBuffer, uint32_t packetBufferSizeInBytes, PacketReceivedCallback cb)
 {
-    char buffer[IP_MAXPACKET];
-    memset(buffer, 0, sizeof(buffer));
-    int32_t nBytes = recv(socketFd, buffer, sizeof(buffer) - 1, 0);
+    int32_t nBytes = recv(socketFd, packetBuffer, packetBufferSizeInBytes - 1, 0);
     if(nBytes == 0)
     {
         // handle disconnect
@@ -165,11 +163,11 @@ int PHReceive(int32_t socketFd, PacketReceivedCallback cb)
         return -4;
     }
 
-    cb(buffer, nBytes, &clientInfo);
+    cb(packetBuffer, nBytes, &clientInfo);
     return 0;
 }
 
-int PHReceiveLoop(struct pollfd* pollFds, uint32_t nPollFds, PacketReceivedCallback cb)
+int PHReceiveLoop(struct pollfd* pollFds, uint32_t nPollFds, char* packetBuffer, uint32_t packetBufferSizeInBytes, PacketReceivedCallback cb)
 {
     for(;;)
     {
@@ -202,7 +200,7 @@ int PHReceiveLoop(struct pollfd* pollFds, uint32_t nPollFds, PacketReceivedCallb
                 else
                 {
                     // handle incoming data
-                    int res = PHReceive(pollFds[i].fd, cb);
+                    int res = PHReceive(pollFds[i].fd, packetBuffer, packetBufferSizeInBytes, cb);
                     if(res < 0)
                     {
                         PHRemoveAndCloseFromPollArray(pollFds, nPollFds, pollFds[i].fd);
@@ -329,25 +327,21 @@ int PHAddrToStr(struct sockaddr* addr, char* addrStr, uint32_t addrStrLen)
 }
 
 // TODO: maybe shut down automatically if no clients are connected for a certain period of time?
-int PHRun(int32_t listeningSocket, PacketReceivedCallback cb)
+int PHRun(struct InitData* initData, PacketReceivedCallback cb)
 {
-    fprintf(stdout, "running PacketHandler...\n");
-
-    if(listeningSocket < 0)
+    if(initData->listeningSocket < 0)
     {
         fprintf(stderr, "cannot run, invalid socket\n");
         return -1;
     }
 
-    char packetBuffer[IP_MAXPACKET + 1];
     struct pollfd pollFds[MAX_CLIENTS + 1];
     memset(pollFds, -1, sizeof(pollFds));
-    memset(packetBuffer, 0, sizeof(packetBuffer));
 
-    pollFds[LISTENER_POLLFD_INDEX].fd = listeningSocket;
+    pollFds[LISTENER_POLLFD_INDEX].fd = initData->listeningSocket;
     pollFds[LISTENER_POLLFD_INDEX].events = POLLIN;
     pollFds[LISTENER_POLLFD_INDEX].revents = 0;
 
-    PHReceiveLoop(pollFds, sizeof(pollFds) / sizeof(pollFds[0]), cb);
+    PHReceiveLoop(pollFds, sizeof(pollFds) / sizeof(pollFds[0]), initData->packetBuffer, PACKET_BUFFER_LEN, cb);
     return 0;
 }

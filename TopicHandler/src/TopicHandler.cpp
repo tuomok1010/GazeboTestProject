@@ -47,7 +47,8 @@ void PacketHandlerReceiveCallback(char* payload, int32_t nBytes, struct ClientIn
 //////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
-  int listeningSocket = PHInit(PORT);
-  PHRun(listeningSocket, PacketHandlerReceiveCallback);
+  InitData initData;
+  PHInit(&initData, PORT);
+  PHRun(&initData, PacketHandlerReceiveCallback);
   return 0;
 }

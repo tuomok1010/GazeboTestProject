@@ -7,7 +7,7 @@ char ssid[] = SSID_NAME;
 char pass[] = PASS;
 int status = WL_IDLE_STATUS;
 
-IPAddress targetAddr(192, 168, 243, 208);
+IPAddress targetAddr(192, 168, 84, 208);
 const unsigned int targetPort = 8445;
 
 // how often retry connection to the wifi network
