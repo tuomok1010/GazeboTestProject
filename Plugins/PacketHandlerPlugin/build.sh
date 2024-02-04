@@ -1,14 +1,18 @@
 #!/bin/bash
 
-# executable location
-BUILD_PATH="build/TopicHandler"
+# library location
+LIB_PATH="lib/libpackethandlerplugin.so"
+
+# obj file location
+OBJ_PATH="build/PacketHandlerPlugin.o"
 
 # source code location
-CODE_PATH="src/TopicHandler.cpp"
+CODE="src/PacketHandlerPlugin.cpp"
 
 # need to tell g++ where to find gazebo headers 
 # NOTE: add them to g++ command with -I arg as needed, for example: -I$GZ_MSGS_PATH (or just use GZ_INCLUDE_ALL_HEADERS)
 # NOTE: edit version numbers if needed
+# TODO: determine the version numbers automatically
 GZ_CMAKE_PATH="/usr/include/gz/cmake3/"
 GZ_COMMON_PATH="/usr/include/gz/common5/"
 GZ_FUEL_TOOLS_PATH="/usr/include/gz/fuel_tools9/"
@@ -29,12 +33,21 @@ GZ_INCLUDE_ALL_HEADERS="-I$GZ_CMAKE_PATH -I$GZ_COMMON_PATH -I$GZ_FUEL_TOOLS_PATH
     -I$GZ_LAUNCH_PATH -I$GZ_MATH_PATH -I$GZ_MSGS_PATH -I$GZ_PHYSICS_PATH -I$GZ_PLUGIN_PATH -I$GZ_RENDERING_PATH\
     -I$GZ_SDFORMAT_PATH -I$GZ_SENSORS_PATH -I$GZ_SIM_PATH -I$GZ_TRANSPORT_PATH -I$GZ_UTILS_PATH"
 
-# need to tell g++ where to find PacketHandler header and lib file
-PH_INC_PATH="../PacketHandler/include/"
-PH_LIB_PATH="../PacketHandler/lib/"
+# need to tell g++ where to find PacketHandler header and lib file, note that we are using the packet handler's shared lib version, 
+# because Gazebo plugins are compiled as shared libraries. Compiling the plugin with a static library dependency may cause problems. 
+PH_INC_PATH="$HOME/Documents/Gazebo/TestProject/PacketHandler/include/" # <-- include remains the same regardless of PH lib version (shared or static) 
+PH_LIB_PATH="$HOME/Documents/Gazebo/TestProject/PacketHandler/lib/shared/" # <-- using shared lib version
 
 # need to tell g++ which libraries to use
-LIBS="-l:libprotobuf.a -lgz-msgs10 -lgz-transport13 -lgz-math7 -lgz-utils2 -lpackethandler"
+LIBS="-l:libprotobuf.so -lgz-msgs10 -lsdformat14 -lgz-sim8 -lgz-common5 -lgz-utils2 -lgz-math7 -lgz-transport13 -lgz-plugin2 -lpackethandler"
 
+# build object files
 mkdir -p build
-g++ -Wall -o $BUILD_PATH $CODE_PATH -L$PH_LIB_PATH -I$GZ_MSGS_PATH -I$GZ_TRANSPORT_PATH -I$GZ_MATH_PATH -I$GZ_UTILS_PATH -I$PH_INC_PATH $LIBS
+g++ -std=c++17 -Wall -c -fPIC $CODE -o $OBJ_PATH\
+    -I$GZ_SIM_PATH -I$GZ_MSGS_PATH -I$GZ_COMMON_PATH -I$GZ_UTILS_PATH\
+    -I$GZ_MATH_PATH -I$GZ_TRANSPORT_PATH -I$GZ_SDFORMAT_PATH -I$GZ_PLUGIN_PATH\
+    -I$PH_INC_PATH
+
+# create shared library
+mkdir -p lib
+g++ -shared -Wl,-rpath,$PH_LIB_PATH -o $LIB_PATH $OBJ_PATH -L$PH_LIB_PATH $LIBS

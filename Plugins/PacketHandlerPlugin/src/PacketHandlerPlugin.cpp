@@ -1,13 +1,20 @@
-#include <gz/msgs.hh>
-#include <gz/transport.hh>
+#include "PacketHandlerPlugin.h"
 #include <PacketHandlerInclude.h>
+#include <gz/plugin/Register.hh>
+#include <gz/transport.hh>
 
-#define PORT  "8445"
-
+GZ_ADD_PLUGIN(
+    packet_handler::PacketHandlerPlugin,
+    gz::sim::System,
+    packet_handler::PacketHandlerPlugin::ISystemPreUpdate,
+    packet_handler::PacketHandlerPlugin::ISystemUpdate,
+    packet_handler::PacketHandlerPlugin::ISystemPostUpdate,
+    packet_handler::PacketHandlerPlugin::ISystemReset)
 
 /*
  * gets called every time a new packet has been received 
 */
+
 void PacketHandlerReceiveCallback(char* payload, int32_t nBytes, struct ClientInfo* clientInfo)
 {
     payload[nBytes] = '\0';
@@ -44,11 +51,40 @@ void PacketHandlerReceiveCallback(char* payload, int32_t nBytes, struct ClientIn
     }
 }
 
-//////////////////////////////////////////////////
-int main(int argc, char **argv)
+packet_handler::PacketHandlerPlugin::PacketHandlerPlugin()
 {
-  InitData initData;
-  PHInit(&initData, PORT);
-  PHRun(&initData, PacketHandlerReceiveCallback);
-  return 0;
+    gzmsg << "PacketHandlerPlugin::PacketHandlerPlugin()" << std::endl;
+
+    initData = new InitData;
+    PHInit(initData, port);
+}
+
+packet_handler::PacketHandlerPlugin::~PacketHandlerPlugin()
+{
+    gzmsg << "PacketHandlerPlugin::~PacketHandlerPlugin()" << std::endl;
+    
+    PHQuit(initData);
+    if(initData)
+        delete initData;
+}
+
+void packet_handler::PacketHandlerPlugin::PreUpdate(const gz::sim::UpdateInfo &_info, gz::sim::EntityComponentManager &_ecm)
+{
+
+}
+
+void packet_handler::PacketHandlerPlugin::Update(const gz::sim::UpdateInfo &_info, gz::sim::EntityComponentManager &_ecm)
+{
+    if(initData)
+        PHRun(initData, FALSE, 0, PacketHandlerReceiveCallback);
+}   
+
+void packet_handler::PacketHandlerPlugin::PostUpdate(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm)
+{
+
+}
+
+void packet_handler::PacketHandlerPlugin::Reset(const gz::sim::UpdateInfo &_info, gz::sim::EntityComponentManager &_ecm)
+{
+    gzmsg << "TestPlugin::Reset()" << std::endl;
 }

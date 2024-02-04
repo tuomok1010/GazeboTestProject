@@ -1,10 +1,6 @@
 <?xml version='1.0'?>
 <gz version='1.0'>
   <executable name='test_world'>
-    <command>gz sim test_world.sdf</command>
-  </executable>
-
-  <executable name='topic_handler'>
-    <command>../TopicHandler/build/TopicHandler</command>
+    <command>gz sim -v 2 test_world.sdf</command>
   </executable>
 </gz>
